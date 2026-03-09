@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私房食譜庫 - 分類版</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
+        .recipe-card:hover { transform: translateY(-5px); transition: 0.3s; }
+        .active-tab { background-color: #f97316 !important; color: white !important; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // 定義分類
+        const CATEGORIES = ["全部", "中式", "台式", "西式", "甜點", "其他"];
+
+        // --- 預設初始資料 ---
+        const initialData = [
+            {
+                id: 1,
+                name: "經典紅燒肉",
+                category: "中式",
+                description: "軟糯入味，入口即化，下飯首選。",
+                image: "https://images.unsplash.com/photo-1544333346-64e4fe1cabc9?q=80&w=400",
+                prepTime: "20", cookTime: "60",
+                ingredients: ["五花肉 500g", "醬油 50ml", "冰糖 20g"],
+                steps: ["肉塊焯水撈出", "炒糖色後下肉", "中小火燉煮60分鐘"]
+            },
+            {
+                id: 2,
+                name: "提拉米蘇",
+                category: "甜點",
+                description: "義大利經典甜點，苦甜適中的完美比例。",
+                image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=400",
+                prepTime: "30", cookTime: "0",
+                ingredients: ["馬斯卡彭起司 250g", "手指餅乾 一包", "濃縮咖啡 適量"],
+                steps: ["攪打蛋黃與糖", "混合馬斯卡彭", "組裝並冷藏 4 小時"]
+            }
+        ];
+
+        function RecipeApp() {
+            const [recipes, setRecipes] = useState([]);
+            const [view, setView] = useState('list'); 
+            const [selectedId, setSelectedId] = useState(null);
+            const [formData, setFormData] = useState(null);
+            const [activeTab, setActiveTab] = useState("全部");
+
+            // 初始化與讀取
+            useEffect(() => {
+                const saved = localStorage.getItem('my_recipes_v3');
+                setRecipes(saved ? JSON.parse(saved) : initialData);
+            }, []);
+
+            // 存檔
+            useEffect(() => {
+                if (recipes.length > 0) localStorage.setItem('my_recipes_v3', JSON.stringify(recipes));
+            }, [recipes]);
+
+            const currentRecipe = recipes.find(r => r.id === selectedId);
+
+            // 導覽功能
+            const goToDetail = (id) => { setSelectedId(id); setView('detail'); window.scrollTo(0,0); };
+            const goToList = () => { setView('list'); window.scrollTo(0,0); };
+            const startEdit = () => { setFormData({...currentRecipe}); setView('edit'); };
+            const startAdd = () => {
+                setFormData({
+                    id: Date.now(), name: "", category: "中式", description: "", 
+                    image: "https://via.placeholder.com/400x250?text=Paste+Image+URL+Here",
+                    prepTime: "10", cookTime: "10", ingredients: [""], steps: [""]
+                });
+                setView('add');
+            };
+
+            const handleSave = () => {
+                if (view === 'add') {
+                    setRecipes([...recipes, formData]);
+                    setSelectedId(formData.id);
+                } else {
+                    setRecipes(recipes.map(r => r.id === formData.id ? formData : r));
+                }
+                setView('detail');
+            };
+
+            const handleDelete = (id) => {
+                if(confirm("確定要刪除這個食譜嗎？")) {
+                    setRecipes(recipes.filter(r => r.id !== id));
+                    goToList();
+                }
+            };
+
+            // 列表過濾邏輯
+            const filteredRecipes = activeTab === "全部" 
+                ? recipes 
+                : recipes.filter(r => r.category === activeTab);
+
+            // --- 畫面：列表頁 ---
+            const ListView = () => (
+                <div className="max-w-4xl mx-auto p-4">
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-3xl font-extrabold text-gray-800">我的家常食譜庫</h1>
+                        <button onClick={startAdd} className="bg-orange-500 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-orange-600">＋ 新增</button>
+                    </div>
+
+                    {/* 分類導覽列 */}
+                    <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+                        {CATEGORIES.map(cat => (
+                            <button 
+                                key={cat} 
+                                onClick={() => setActiveTab(cat)}
+                                className={`px-5 py-2 rounded-full text-sm font-bold bg-white text-gray-500 border whitespace-nowrap ${activeTab === cat ? 'active-tab' : ''}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {filteredRecipes.map(r => (
+                            <div key={r.id} onClick={() => goToDetail(r.id)} className="recipe-card bg-white rounded-2xl overflow-hidden shadow-md cursor-pointer border border-gray-100">
+                                <div className="relative">
+                                    <img src={r.image} className="w-full h-48 object-cover" />
+                                    <span className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded">{r.category}</span>
+                                </div>
+                                <div className="p-4">
+                                    <h2 className="text-xl font-bold text-gray-800">{r.name}</h2>
+                                    <p className="text-gray-500 text-sm mt-1 line-clamp-2">{r.description}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredRecipes.length === 0 && <div className="text-center py-20 col-span-full text-gray-400">目前此分類沒有食譜</div>}
+                    </div>
+                </div>
+            );
+
+            // --- 畫面：詳情頁 ---
+            const DetailView = () => (
+                <div className="max-w-2xl mx-auto bg-white min-h-screen shadow-xl">
+                    <div className="relative">
+                        <button onClick={goToList} className="absolute top-4 left-4 bg-black/50 text-white w-10 h-10 rounded-full flex items-center justify-center">←</button>
+                        <img src={currentRecipe.image} className="w-full h-80 object-cover" />
+                        <span className="absolute bottom-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-lg font-bold">{currentRecipe.category}</span>
+                    </div>
+                    <div className="p-8">
+                        <h1 className="text-4xl font-black text-gray-800">{currentRecipe.name}</h1>
+                        <p className="text-gray-500 mt-4 text-lg">{currentRecipe.description}</p>
+                        
+                        <div className="flex gap-4 my-8">
+                            <div className="flex-1 bg-gray-50 p-4 rounded-2xl text-center"><p className="text-gray-400 text-sm">準備時間</p><p className="font-bold text-xl">{currentRecipe.prepTime} 分</p></div>
+                            <div className="flex-1 bg-gray-50 p-4 rounded-2xl text-center"><p className="text-gray-400 text-sm">烹飪時間</p><p className="font-bold text-xl">{currentRecipe.cookTime} 分</p></div>
+                        </div>
+
+                        <h3 className="text-2xl font-bold mb-4">🛒 食材</h3>
+                        <div className="bg-orange-50 p-6 rounded-2xl space-y-3 mb-10">
+                            {currentRecipe.ingredients.map((ing, i) => (
+                                <div key={i} className="flex items-center gap-3 text-gray-700 border-b border-orange-100 pb-2">
+                                    <input type="checkbox" className="w-5 h-5 accent-orange-500" /> {ing}
+                                </div>
+                            ))}
+                        </div>
+
+                        <h3 className="text-2xl font-bold mb-4">👨‍🍳 步驟</h3>
+                        <div className="space-y-6">
+                            {currentRecipe.steps.map((step, i) => (
+                                <div key={i} className="flex gap-4">
+                                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex-shrink-0 flex items-center justify-center font-bold">{i+1}</div>
+                                    <p className="text-gray-700 text-lg">{step}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-4 mt-12 pb-10">
+                            <button onClick={startEdit} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-bold">編輯內容與照片</button>
+                            <button onClick={() => handleDelete(currentRecipe.id)} className="flex-1 bg-red-100 text-red-600 py-4 rounded-2xl font-bold">刪除</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // --- 畫面：表單頁 (編輯/新增) ---
+            const FormView = () => (
+                <div className="max-w-2xl mx-auto p-6 bg-white min-h-screen">
+                    <h2 className="text-3xl font-bold mb-6">{view === 'add' ? '✨ 新增食譜' : '📝 編輯食譜'}</h2>
+                    <div className="space-y-5">
+                        <div className="flex gap-4">
+                            <div className="flex-2 w-2/3">
+                                <label className="block text-sm font-bold mb-1">食譜名稱</label>
+                                <input className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white outline-orange-400" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-sm font-bold mb-1">分類</label>
+                                <select className="w-full border rounded-xl p-3 bg-gray-50" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                                    {CATEGORIES.filter(c => c !== "全部").map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* 照片網址編輯區 */}
+                        <div>
+                            <label className="block text-sm font-bold mb-1">照片網址 (貼上圖片連結)</label>
+                            <input className="w-full border rounded-xl p-3 bg-gray-50 mb-2" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} placeholder="https://..." />
+                            <p className="text-xs text-gray-400">預覽：</p>
+                            <img src={formData.image} className="w-40 h-24 object-cover rounded-lg border mt-1" onError={(e)=>{e.target.src='https://via.placeholder.com/400x250?text=Invalid+URL'}} />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold mb-1">描述</label>
+                            <textarea className="w-full border rounded-xl p-3 h-20 bg-gray-50" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="flex-1"><label className="block text-sm font-bold mb-1">準備(分)</label><input type="number" className="w-full border rounded-xl p-3 bg-gray-50" value={formData.prepTime} onChange={e => setFormData({...formData, prepTime: e.target.value})} /></div>
+                            <div className="flex-1"><label className="block text-sm font-bold mb-1">烹飪(分)</label><input type="number" className="w-full border rounded-xl p-3 bg-gray-50" value={formData.cookTime} onChange={e => setFormData({...formData, cookTime: e.target.value})} /></div>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-bold mb-1 text-orange-600">所需食材 (每行一項)</label>
+                            <textarea className="w-full border rounded-xl p-3 h-32 bg-gray-50" value={formData.ingredients.join('\n')} onChange={e => setFormData({...formData, ingredients: e.target.value.split('\n')})} />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold mb-1 text-orange-600">詳細步驟 (每行一步)</label>
+                            <textarea className="w-full border rounded-xl p-3 h-32 bg-gray-50" value={formData.steps.join('\n')} onChange={e => setFormData({...formData, steps: e.target.value.split('\n')})} />
+                        </div>
+
+                        <div className="flex gap-4 pt-6 pb-10">
+                            <button onClick={handleSave} className="flex-1 bg-orange-500 text-white py-4 rounded-2xl font-bold shadow-lg">儲存並完成</button>
+                            <button onClick={() => view === 'add' ? goToList() : setView('detail')} className="flex-1 bg-gray-200 text-gray-600 py-4 rounded-2xl font-bold">返回</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen">
+                    {view === 'list' && <ListView />}
+                    {view === 'detail' && <DetailView />}
+                    {(view === 'edit' || view === 'add') && <FormView />}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<RecipeApp />);
+    </script>
+</body>
+</html>
